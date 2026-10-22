@@ -1,0 +1,54 @@
+[project]
+name = "chart-maker"
+version = "0.1.0"
+description = "Gera charts de Clone Hero (guitarra e bateria no Expert) automaticamente a partir de uma música."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.13",
+    "librosa>=0.11",
+    "soundfile>=0.12",
+    "torch==2.11.0",
+    "torchaudio==2.11.0",
+    "demucs==4.1.0",
+    "beat-this==1.1.0",
+    "adtof-pytorch @ git+https://github.com/xavriley/ADTOF-pytorch@85c192e78f716ea0b111cc8a5ee4a8f6a3a4f8a9",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "python-multipart>=0.0.9",
+]
+
+[project.scripts]
+chart-maker = "chart_maker.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/chart_maker"]
+
+[tool.uv]
+environments = ["sys_platform == 'linux'", "sys_platform == 'win32'"]
+
+# CPU-only PyTorch: the default CUDA wheels are several GB and there is no NVIDIA GPU here.
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchaudio = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: end-to-end tests that run the ML models (deselected by default)"]
+addopts = "-m 'not slow'"

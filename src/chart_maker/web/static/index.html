@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>chart_maker</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel-2: #1e222b; --line: #2b303b; --text: #e8eaf0; --muted: #9aa3b2;
+    --accent: #ffb020; --accent-2: #ff7a18; --ok: #3ccf4e; --err: #ff5c5c;
+    --g: #3ccf4e; --r: #e8414a; --y: #f4d03f; --b: #3b8ff3; --o: #f39c35;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 28px 16px 8px; max-width: 880px; margin: 0 auto; }
+  header h1 { margin: 0; font-size: 28px; letter-spacing: .5px; }
+  header h1 span { color: var(--accent); }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  main { max-width: 880px; margin: 0 auto; padding: 8px 16px 48px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-top: 16px; }
+  .drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center;
+          border: 2px dashed var(--line); border-radius: 12px; padding: 34px 16px; cursor: pointer; transition: .15s; }
+  .drop:hover, .drop.over { border-color: var(--accent); background: #ffb0200d; }
+  .drop input { display: none; }
+  .drop strong { font-size: 18px; }
+  .drop .file { color: var(--accent); font-weight: 600; word-break: break-all; }
+  .drop small { color: var(--muted); }
+  details { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+  summary { cursor: pointer; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-top: 10px; }
+  label.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  input[type=text], select, input[type=file].plain { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+          color: var(--text); padding: 8px 10px; font: inherit; }
+  .check { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; color: var(--text); font-size: 14px; }
+  .check small { display: block; color: var(--muted); }
+  .actions { display: flex; gap: 10px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
+  button { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 8px 14px;
+           font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  button.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #1a1205; border: 0; font-weight: 700; padding: 10px 20px; }
+  button:disabled { opacity: .5; cursor: default; }
+  .hint { color: var(--muted); font-size: 13px; }
+  .error { color: var(--err); }
+  #jobs:empty::before { content: "Nenhuma música enviada ainda."; display: block; color: var(--muted); text-align: center; padding: 24px; }
+  .job { display: grid; grid-template-columns: 84px 1fr; gap: 14px; }
+  .job img, .job .ph { width: 84px; height: 84px; border-radius: 10px; object-fit: cover; background: var(--panel-2); }
+  .job h3 { margin: 0; font-size: 17px; }
+  .job .sub { color: var(--muted); font-size: 13px; }
+  .bar { height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; margin: 10px 0 4px; }
+  .bar div { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .4s; }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
+  .stats li { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; font-size: 13px; }
+  .stats b { color: var(--accent); }
+  .warn { color: var(--accent); font-size: 13px; margin-top: 6px; }
+  .ok { color: var(--ok); font-size: 13px; margin-top: 6px; word-break: break-all; }
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 16px; width: min(560px, 96vw); }
+  dialog::backdrop { background: #000a; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 10px; }
+  .tabs button.active { border-color: var(--accent); color: var(--accent); }
+  canvas { width: 100%; display: block; background: #090b0f; border-radius: 10px; }
+  audio { width: 100%; margin-top: 10px; }
+  .dialog-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .dialog-head h3 { margin: 0; font-size: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>chart<span>_</span>maker</h1>
+  <p>Envie uma música e receba um chart de Clone Hero com <b>guitarra</b> e <b>bateria</b> no Expert.</p>
+</header>
+<main>
+  <section class="card">
+    <form id="form">
+      <label class="drop" id="drop">
+        <input type="file" name="file" id="file" accept="audio/*,.mp3,.ogg,.opus,.flac,.wav,.m4a,.aac,.webm" required>
+        <strong>Arraste a música aqui</strong>
+        <span>ou clique para escolher o arquivo</span>
+        <span class="file" id="fileName"></span>
+        <small>mp3, ogg, flac, wav, m4a… até 300 MB</small>
+      </label>
+      <details>
+        <summary>Informações da música (opcional — por padrão uso as tags do arquivo)</summary>
+        <div class="grid">
+          <label class="field">Nome<input type="text" name="title" maxlength="120"></label>
+          <label class="field">Artista<input type="text" name="artist" maxlength="120"></label>
+          <label class="field">Álbum<input type="text" name="album" maxlength="120"></label>
+          <label class="field">Gênero<input type="text" name="genre" maxlength="60"></label>
+          <label class="field">Ano<input type="text" name="year" maxlength="4" inputmode="numeric"></label>
+          <label class="field">Capa (imagem)<input type="file" class="plain" name="cover" accept="image/*"></label>
+        </div>
+      </details>
+      <details>
+        <summary>Opções avançadas</summary>
+        <div class="grid">
+          <label class="field">Fonte da guitarra
+            <select name="guitar_source">
+              <option value="auto">Automática</option>
+              <option value="guitar">Só a guitarra separada</option>
+              <option value="other">Outros instrumentos (synths, cordas…)</option>
+              <option value="piano">Piano / teclado</option>
+              <option value="guitar+other">Guitarra + outros</option>
+              <option value="guitar+piano">Guitarra + piano</option>
+            </select>
+          </label>
+        </div>
+        <label class="check"><input type="checkbox" name="stems" value="true">
+          <span>Separar o áudio da guitarra e da bateria<small>No jogo, o instrumento fica mudo quando você erra, como no Rock Band.</small></span>
+        </label>
+      </details>
+      <label class="check" id="installRow" hidden><input type="checkbox" name="install" value="true" checked>
+        <span>Instalar direto no Clone Hero<small id="songsDir"></small></span>
+      </label>
+      <div class="actions">
+        <button class="primary" type="submit" id="submit">Gerar chart</button>
+        <span class="hint">O processamento leva de 1 a 4 minutos por música (a separação dos instrumentos é a parte demorada).</span>
+      </div>
+      <p class="error" id="formError" hidden></p>
+    </form>
+  </section>
+
+  <section id="jobs"></section>
+</main>
+
+<dialog id="preview">
+  <div class="dialog-head">
+    <h3 id="previewTitle">Pré-visualização</h3>
+    <button type="button" id="closePreview">Fechar</button>
+  </div>
+  <div class="tabs">
+    <button type="button" data-track="guitar" class="active">Guitarra</button>
+    <button type="button" data-track="drums">Bateria</button>
+  </div>
+  <canvas id="highway" width="520" height="640"></canvas>
+  <audio id="audio" controls preload="auto"></audio>
+</dialog>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+let config = { songs_dir: null };
+let jobs = [];
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") node.className = v; else if (k.startsWith("on")) node.addEventListener(k.slice(2), v); else node.setAttribute(k, v);
+  }
+  for (const child of children.flat()) if (child != null) node.append(child instanceof Node ? child : document.createTextNode(child));
+  return node;
+}
+
+async function api(path, options = {}) {
+  const response = await fetch(path, options);
+  if (!response.ok) {
+    let message = response.statusText;
+    try { message = (await response.json()).detail || message; } catch {}
+    throw new Error(message);
+  }
+  return response.json();
+}
+
+// ---------------------------------------------------------------- upload form
+const drop = $("#drop"), fileInput = $("#file");
+fileInput.addEventListener("change", () => { $("#fileName").textContent = fileInput.files[0]?.name || ""; });
+drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", (e) => {
+  e.preventDefault(); drop.classList.remove("over");
+  if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; fileInput.dispatchEvent(new Event("change")); }
+});
+
+$("#form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const error = $("#formError");
+  error.hidden = true;
+  if (!fileInput.files.length) { error.textContent = "Escolha um arquivo de áudio."; error.hidden = false; return; }
+  const data = new FormData(e.target);
+  if (!data.get("cover")?.size) data.delete("cover");
+  $("#submit").disabled = true;
+  try {
+    await api("/api/jobs", { method: "POST", body: data });
+    e.target.reset(); $("#fileName").textContent = "";
+    await refresh();
+  } catch (err) {
+    error.textContent = err.message; error.hidden = false;
+  } finally {
+    $("#submit").disabled = false;
+  }
+});
+
+// ---------------------------------------------------------------- job list
+function difficulty(n) { return n < 0 ? "—" : "★".repeat(n + 1) + "☆".repeat(Math.max(0, 6 - n)); }
+
+function renderJob(job) {
+  const r = job.result;
+  const title = r ? `${r.artist} - ${r.name}` : job.filename;
+  const cover = job.status === "done" ? el("img", { src: `/api/jobs/${job.id}/cover?${job.created}`, alt: "" }) : el("div", { class: "ph" });
+  cover.addEventListener?.("error", () => cover.replaceWith(el("div", { class: "ph" })));
+  const body = el("div", {}, el("h3", {}, title), el("div", { class: "sub" }, job.filename));
+  if (job.status === "queued" || job.status === "running") {
+    body.append(el("div", { class: "bar" }, el("div", { style: `width:${(job.progress * 100).toFixed(1)}%` })),
+                el("div", { class: "sub" }, `${job.stage} · ${(job.progress * 100).toFixed(0)}%`));
+  } else if (job.status === "error") {
+    body.append(el("p", { class: "error" }, `Erro: ${job.error}`));
+  } else if (r) {
+    body.append(el("ul", { class: "stats" },
+      el("li", {}, "Andamento ", el("b", {}, `${r.bpm} BPM`), r.tempo_changes ? ` (+${r.tempo_changes} mudanças)` : ""),
+      el("li", {}, "Duração ", el("b", {}, `${Math.floor(r.duration / 60)}:${String(Math.round(r.duration % 60)).padStart(2, "0")}`)),
+      el("li", {}, "Guitarra ", el("b", {}, `${r.guitar_notes} notas`), ` · ${r.guitar_chords} acordes · ${difficulty(r.diff_guitar)}`),
+      el("li", {}, "Bateria ", el("b", {}, `${r.drum_notes} notas`), ` · ${difficulty(r.diff_drums)}`),
+      el("li", {}, "Seções ", el("b", {}, String(r.sections.length))),
+    ));
+    for (const w of r.warnings) body.append(el("div", { class: "warn" }, `⚠ ${w}`));
+    if (job.installed_to) body.append(el("div", { class: "ok" }, `✔ Instalado em ${job.installed_to}`));
+    const actions = el("div", { class: "actions" },
+      el("button", { type: "button", onclick: () => openPreview(job) }, "▶ Pré-visualizar"),
+      el("a", { href: `/api/jobs/${job.id}/download` }, el("button", { type: "button" }, "⬇ Baixar .zip")),
+    );
+    if (config.songs_dir && !job.installed_to) {
+      actions.append(el("button", { type: "button", onclick: async (ev) => {
+        ev.target.disabled = true;
+        try { await api(`/api/jobs/${job.id}/install`, { method: "POST" }); await refresh(); } catch (err) { alert(err.message); ev.target.disabled = false; }
+      } }, "Instalar no Clone Hero"));
+    }
+    actions.append(el("button", { type: "button", onclick: async () => {
+      if (!confirm("Remover esta tarefa da lista? (a pasta do chart não é apagada)")) return;
+      await api(`/api/jobs/${job.id}`, { method: "DELETE" }); await refresh();
+    } }, "Remover"));
+    body.append(el("div", { class: "sub", style: "margin-top:8px" }, `Pasta: ${r.folder}`), actions);
+  }
+  return el("article", { class: "card job" }, cover, body);
+}
+
+async function refresh() {
+  try { jobs = await api("/api/jobs"); } catch { return; }
+  $("#jobs").replaceChildren(...jobs.map(renderJob));
+}
+
+async function loop() {
+  await refresh();
+  const busy = jobs.some((j) => j.status === "queued" || j.status === "running");
+  setTimeout(loop, busy ? 1000 : 5000);
+}
+
+// ---------------------------------------------------------------- highway preview
+const COLORS = { guitar: ["#3ccf4e", "#e8414a", "#f4d03f", "#3b8ff3", "#f39c35"], drums: ["#e8414a", "#f4d03f", "#3b8ff3", "#3ccf4e"] };
+const LOOKAHEAD = 1.6;
+let previewData = null, currentTrack = "guitar", rafId = 0;
+const canvas = $("#highway"), ctx = canvas.getContext("2d"), audio = $("#audio");
+
+async function openPreview(job) {
+  previewData = await api(`/api/jobs/${job.id}/preview`);
+  $("#previewTitle").textContent = `${job.result.artist} - ${job.result.name}`;
+  audio.src = `/api/jobs/${job.id}/audio`;
+  setTrack(previewData.guitar ? "guitar" : "drums");
+  $("#preview").showModal();
+  cancelAnimationFrame(rafId);
+  const frame = () => { draw(audio.currentTime); rafId = requestAnimationFrame(frame); };
+  frame();
+}
+function setTrack(name) {
+  currentTrack = name;
+  document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.track === name));
+}
+document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => setTrack(b.dataset.track)));
+$("#closePreview").addEventListener("click", () => $("#preview").close());
+$("#preview").addEventListener("close", () => { audio.pause(); cancelAnimationFrame(rafId); });
+
+function inRanges(t, ranges) { return ranges.some(([a, b]) => t >= a && t <= b + 1e-3); }
+
+function draw(now) {
+  const W = canvas.width, H = canvas.height, strike = H - 70, speed = (strike - 10) / LOOKAHEAD;
+  const track = previewData?.[currentTrack];
+  ctx.clearRect(0, 0, W, H);
+  if (!track) { ctx.fillStyle = "#9aa3b2"; ctx.font = "16px system-ui"; ctx.fillText("Sem notas neste instrumento.", 24, 40); return; }
+  const drums = currentTrack === "drums", lanes = drums ? 4 : 5, colors = COLORS[currentTrack];
+  const left = 40, laneW = (W - 2 * left) / lanes, y = (t) => strike - (t - now) * speed;
+  const laneX = (i) => left + laneW * (i + 0.5);
+
+  ctx.fillStyle = "#12151c"; ctx.fillRect(left, 0, W - 2 * left, H);
+  for (const [a, b] of track.fills || []) {  // drum activation fills
+    if (b < now - 0.3 || a > now + LOOKAHEAD) continue;
+    ctx.fillStyle = "#7fe7ff14"; ctx.fillRect(left, y(b), W - 2 * left, y(a) - y(b));
+  }
+  for (const [list, style, width] of [[previewData.beats, "#ffffff14", 1], [previewData.bars, "#ffffff40", 2]]) {
+    ctx.strokeStyle = style; ctx.lineWidth = width;
+    for (const t of list) { if (t < now - 0.2 || t > now + LOOKAHEAD) continue; ctx.beginPath(); ctx.moveTo(left, y(t)); ctx.lineTo(W - left, y(t)); ctx.stroke(); }
+  }
+  for (let i = 1; i < lanes; i++) { ctx.strokeStyle = "#ffffff0d"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(left + laneW * i, 0); ctx.lineTo(left + laneW * i, H); ctx.stroke(); }
+
+  const notes = track.notes, hitLanes = new Set();
+  // Sustains first, so gems are drawn on top.
+  for (const n of notes) {
+    if (!n.d || n.t + n.d < now || n.t > now + LOOKAHEAD) continue;
+    const sp = inRanges(n.t, track.sp);
+    for (const lane of n.l) {
+      ctx.fillStyle = sp ? "#7fe7ffaa" : colors[lane] + "aa";
+      const top = Math.max(0, y(n.t + n.d)), bottom = Math.min(strike, y(n.t));
+      if (bottom > top) ctx.fillRect(laneX(lane) - 5, top, 10, bottom - top);
+    }
+  }
+  for (const n of notes) {
+    if (n.t < now - 0.15 || n.t > now + LOOKAHEAD) continue;
+    const ny = y(n.t), sp = inRanges(n.t, track.sp), past = n.t < now;
+    if (Math.abs(n.t - now) < 0.07) n.l.forEach((l) => hitLanes.add(l));
+    ctx.globalAlpha = past ? 0.35 : 1;
+    if (drums) {
+      for (const lane of n.l) {
+        if (lane === 0 || lane === 32) {  // kick / 2x kick: a bar across the highway
+          ctx.fillStyle = lane === 32 ? "#b36bff" : "#f39c35";
+          ctx.fillRect(left + 4, ny - 4, W - 2 * left - 8, 8);
+        }
+      }
+      for (const lane of n.l) {
+        if (lane < 1 || lane > 4) continue;
+        const x = laneX(lane - 1), cymbal = n.f.includes(64 + lane);
+        ctx.fillStyle = sp ? "#dff9ff" : colors[lane - 1];
+        ctx.beginPath();
+        if (cymbal) { ctx.moveTo(x, ny - 13); ctx.lineTo(x + 20, ny); ctx.lineTo(x, ny + 13); ctx.lineTo(x - 20, ny); ctx.closePath(); }
+        else { ctx.roundRect(x - laneW * 0.38, ny - 9, laneW * 0.76, 18, 6); }
+        ctx.fill();
+      }
+    } else {
+      for (const lane of n.l) {
+        const x = laneX(lane);
+        ctx.fillStyle = sp ? "#dff9ff" : colors[lane];
+        ctx.beginPath(); ctx.arc(x, ny, 17, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#0009"; ctx.beginPath(); ctx.arc(x, ny, 8, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+  // Strike line and targets
+  ctx.strokeStyle = "#ffffff55"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(left, strike); ctx.lineTo(W - left, strike); ctx.stroke();
+  for (let i = 0; i < lanes; i++) {
+    const lane = drums ? i + 1 : i, lit = hitLanes.has(lane);
+    ctx.strokeStyle = colors[i]; ctx.lineWidth = lit ? 6 : 3;
+    ctx.beginPath(); ctx.arc(laneX(i), strike, 19, 0, Math.PI * 2); ctx.stroke();
+    if (lit) { ctx.fillStyle = colors[i] + "66"; ctx.fill(); }
+  }
+  const section = [...(previewData.sections || [])].reverse().find(([t]) => t <= now);
+  ctx.fillStyle = "#e8eaf0"; ctx.font = "600 14px system-ui";
+  ctx.fillText(section ? section[1] : "", left + 6, 22);
+  ctx.textAlign = "right"; ctx.fillStyle = "#9aa3b2";
+  ctx.fillText(`${Math.floor(now / 60)}:${String(Math.floor(now % 60)).padStart(2, "0")}`, W - left - 6, 22);
+  ctx.textAlign = "left";
+}
+
+// ---------------------------------------------------------------- start
+(async () => {
+  try { config = await api("/api/config"); } catch {}
+  if (config.songs_dir) { $("#installRow").hidden = false; $("#songsDir").textContent = config.songs_dir; }
+  else { $("#installRow").querySelector("input").checked = false; }
+  await refresh();
+  // Deep link: #preview=<job id>&t=<seconds>&track=guitar|drums
+  const params = new URLSearchParams(location.hash.slice(1));
+  const linked = jobs.find((j) => j.id === params.get("preview") && j.status === "done");
+  if (linked) {
+    audio.addEventListener("loadedmetadata", () => { audio.currentTime = Number(params.get("t")) || 0; }, { once: true });
+    await openPreview(linked);
+    if (params.get("track")) setTrack(params.get("track"));
+  }
+  setTimeout(loop, 1000);
+})();
+</script>
+</body>
+</html>
