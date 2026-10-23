@@ -181,7 +181,7 @@ def create_app(output_dir: Path, songs_dir: Path | None = None, device: str = "c
         if guitar_source not in SOURCES:
             raise HTTPException(400, "Fonte de guitarra inválida")
         if install and songs_dir is None:
-            raise HTTPException(400, "A pasta do Clone Hero não foi configurada (use --songs-dir).")
+            raise HTTPException(400, "A pasta de músicas do jogo não foi configurada (CHART_MAKER_SONGS_DIR no .env ou --songs-dir).")
         job_id = uuid.uuid4().hex
         job_dir = store.dir(job_id)
         job_dir.mkdir(parents=True)
@@ -236,7 +236,7 @@ def create_app(output_dir: Path, songs_dir: Path | None = None, device: str = "c
     def install_job(job_id: str) -> dict:
         job = store.get(job_id)
         if songs_dir is None:
-            raise HTTPException(400, "A pasta do Clone Hero não foi configurada (use --songs-dir).")
+            raise HTTPException(400, "A pasta de músicas do jogo não foi configurada (CHART_MAKER_SONGS_DIR no .env ou --songs-dir).")
         job.installed_to = str(_install(_folder(job), songs_dir))
         store.save(job)
         return {"installed_to": job.installed_to}

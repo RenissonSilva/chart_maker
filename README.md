@@ -22,21 +22,31 @@ uv sync
 
 Isso instala o PyTorch na versão só-CPU (não precisa de placa NVIDIA) e ocupa ~1,5 GB. Na primeira música, os modelos são baixados da internet (~130 MB, ficam em cache em `~/.cache`).
 
+### Pasta de músicas do jogo
+
+Copie `.env.example` para `.env` e coloque nele a pasta de músicas do jogo (no Clone Hero, *Settings → General → Song Folders*):
+
+```
+CHART_MAKER_SONGS_DIR=C:\Users\Voce\AppData\Local\YARC\songs
+```
+
+Com isso, `gerar` cria os charts direto nessa pasta e `serve` instala neles com um clique. Sem o `.env` (ou se a pasta não existir), os charts ficam em `./output`. O `.env` é lido da pasta onde você roda o comando; `-o` e `--songs-dir` têm prioridade sobre ele.
+
 ## Uso
 
 ### Pela página web
 
 ```bash
-uv run chart-maker serve --songs-dir "/caminho/para/Clone Hero/Songs"
+uv run chart-maker serve
 ```
 
 Abra http://127.0.0.1:8000, arraste a música e clique em **Gerar chart**. Quando terminar dá para:
 
 - **Pré-visualizar** o chart no navegador, com a pista rolando junto com a música;
 - **Baixar .zip** da pasta da música;
-- **Instalar no Clone Hero** com um clique (se você passou `--songs-dir`).
+- **Instalar no Clone Hero** com um clique (se a pasta de músicas estiver no `.env` ou em `--songs-dir`).
 
-`--songs-dir` é a pasta configurada no Clone Hero em *Settings → General → Song Folders*. Depois de instalar, faça *Scan Songs* no jogo. Sem `--songs-dir`, os charts ficam em `./output`.
+Os charts são gerados em `./output` e copiados para a pasta de músicas ao instalar. Depois de instalar, faça *Scan Songs* no jogo.
 
 ### Pela linha de comando
 
@@ -47,7 +57,7 @@ uv run chart-maker gerar *.mp3 --stems          # várias músicas, com áudio s
 
 | Opção | Para que serve |
 | --- | --- |
-| `-o PASTA` | Onde criar a pasta da música (padrão `./output`, ou a variável `CHART_MAKER_OUTPUT`). |
+| `-o PASTA` | Onde criar a pasta da música (padrão: `CHART_MAKER_SONGS_DIR` do `.env`; sem ele, `./output` ou a variável `CHART_MAKER_OUTPUT`). |
 | `--title`, `--artist`, `--album`, `--genre`, `--year` | Metadados. Por padrão uso as tags do arquivo. |
 | `--cover IMAGEM` | Capa do álbum. |
 | `--stems` | Grava `guitar.ogg` e `drums.ogg` separados: no jogo o instrumento fica mudo quando você erra. |

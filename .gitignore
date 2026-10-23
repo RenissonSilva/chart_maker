@@ -8,3 +8,6 @@ build/
 
 # charts gerados (padrão de --output)
 output/
+
+# configuração local (veja .env.example)
+.env

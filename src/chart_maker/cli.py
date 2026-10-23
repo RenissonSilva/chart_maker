@@ -12,8 +12,33 @@ from pathlib import Path
 from .guitar import SOURCES
 
 
+def _load_dotenv(path: Path = Path(".env")) -> None:
+    """Read ``KEY=valor`` lines from ``.env`` into the environment; variables already set take precedence."""
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = (part.strip() for part in line.split("=", 1))
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]  # no escape processing: Windows paths keep their backslashes
+        os.environ.setdefault(key, value)
+
+
 def _output_default() -> Path:
     return Path(os.environ.get("CHART_MAKER_OUTPUT", "output"))
+
+
+def _songs_dir_default() -> Path | None:
+    value = os.environ.get("CHART_MAKER_SONGS_DIR")
+    if not value:
+        return None
+    path = Path(value).expanduser()
+    if not path.is_dir():
+        print(f"Aviso: CHART_MAKER_SONGS_DIR não existe ({path}), usando {_output_default()}", file=sys.stderr)
+        return None
+    return path
 
 
 def _progress(fraction: float, message: str) -> None:
@@ -71,11 +96,12 @@ def _serve(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="chart-maker", description="Gera charts de Clone Hero (guitarra e bateria no Expert).")
     sub = parser.add_subparsers(dest="command", required=True)
+    songs_dir = _songs_dir_default()
 
     gen = sub.add_parser("generate", aliases=["gerar"], help="gera o chart de uma ou mais músicas")
     gen.add_argument("files", nargs="+", type=Path, help="arquivos de áudio (mp3, ogg, flac, wav, m4a...)")
-    gen.add_argument("-o", "--output", type=Path, default=_output_default(),
-                     help="pasta onde a pasta da música será criada (ex.: a pasta Songs do Clone Hero)")
+    gen.add_argument("-o", "--output", type=Path, default=songs_dir or _output_default(),
+                     help="pasta onde a pasta da música será criada (padrão: CHART_MAKER_SONGS_DIR do .env, senão ./output)")
     gen.add_argument("--title", help="nome da música (padrão: tag do arquivo)")
     gen.add_argument("--artist", help="artista (padrão: tag do arquivo)")
     gen.add_argument("--album")
@@ -94,8 +120,8 @@ def build_parser() -> argparse.ArgumentParser:
     srv.add_argument("--host", default="127.0.0.1")
     srv.add_argument("--port", type=int, default=8000)
     srv.add_argument("-o", "--output", type=Path, default=_output_default(), help="onde guardar os charts gerados")
-    srv.add_argument("--songs-dir", type=Path, default=os.environ.get("CLONE_HERO_SONGS"),
-                     help="pasta Songs do Clone Hero, para instalar com um clique")
+    srv.add_argument("--songs-dir", type=Path, default=songs_dir,
+                     help="pasta de músicas do jogo, para instalar com um clique (padrão: CHART_MAKER_SONGS_DIR do .env)")
     srv.add_argument("--device", default="cpu")
     srv.set_defaults(func=_serve)
     return parser
@@ -105,6 +131,7 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
     warnings.filterwarnings("ignore", category=UserWarning)
     warnings.filterwarnings("ignore", category=FutureWarning)
+    _load_dotenv()
     args = build_parser().parse_args(argv)
     return args.func(args)
 
